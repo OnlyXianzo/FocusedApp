@@ -3,6 +3,8 @@ name: Build Android APK
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -10,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 60
 
     steps:
@@ -53,8 +57,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools wheel
         pip install buildozer cython==0.29.33
-        # Install only Android-compatible dependencies
-        pip install kivy plyer requests
+        # Install dependencies from requirements file if it exists, otherwise install manually
+        if [ -f requirements-android.txt ]; then
+          pip install -r requirements-android.txt
+        else
+          pip install kivy plyer requests
+        fi
 
     - name: Validate project structure
       run: |
@@ -72,27 +80,37 @@ jobs:
         echo "Starting Android build..."
         echo "Buildozer version:"
         buildozer version
-        echo "Available commands:"
-        buildozer --help
         echo "Building APK..."
-        buildozer android debug --verbose
+        # Running yes to accept license if needed, though config handles it
+        yes | buildozer android debug --verbose
       env:
-        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-        ANDROID_HOME: /usr/local/lib/android/sdk
+        # ANDROID_SDK_ROOT and ANDROID_HOME are usually set by buildozer or the environment
+        # But setting them explicitly if needed. In github actions ubuntu-latest,
+        # these might not be needed as buildozer downloads its own SDK/NDK
+        # Removing explicit paths that might be wrong on standard runners unless we know they exist.
+        # Buildozer handles SDK download.
+        pass: pass
 
     - name: List build artifacts
       run: |
         find . -name "*.apk" -type f
         ls -la bin/ || echo "No bin directory found"
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: focusapp-debug-apk
         path: |
           bin/*.apk
-          .buildozer/android/platform/build-*/outputs/apk/debug/*.apk
         if-no-files-found: warn
+
+    - name: Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: bin/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload build logs
       uses: actions/upload-artifact@v4
