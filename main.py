@@ -29,6 +29,8 @@ from utils.app_usage_checker import AppUsageChecker
 from utils.telegram_bot import telegram_bot
 from background_service import BackgroundService
 
+__version__ = "1.0.0"
+
 # Configure Kivy settings
 Config.set('graphics', 'resizable', False)
 Config.set('graphics', 'width', '360')
