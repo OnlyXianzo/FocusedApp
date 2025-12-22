@@ -3,7 +3,8 @@ name: Build Android APK
 on:
   push:
     branches: [ main, master ]
-    tags: [ 'v*' ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -19,6 +20,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
@@ -28,56 +42,66 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        # ADDED: libltdl-dev and libtool-bin are the keys to fixing LT_SYS_SYMBOL_USCORE
         sudo apt install -y \
-          build-essential \
-          git \
-          python3-dev \
-          autoconf \
-          automake \
-          libtool \
-          libltdl-dev \
-          libtool-bin \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          libtinfo5 \
-          cmake \
-          libffi-dev \
-          libssl-dev \
-          zip \
-          unzip \
-          openjdk-17-jdk \
-          autoconf-archive \
-          m4
+          python3-dev libffi-dev libssl-dev git unzip \
+          automake libtool autoconf pkg-config build-essential \
+          zlib1g-dev libncurses5-dev libncursesw5-dev libgdbm-dev \
+          libnss3-dev libreadline-dev libsqlite3-dev wget libbz2-dev \
+          autotools-dev autoconf-archive m4 libltdl-dev libtool-bin
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        # FORCE: Cython 0.29.33 is required to avoid build crashes with Kivy on Android
+        # Using Cython 0.29.33 for stability with Kivy/p4a
         pip install "buildozer>=1.5.0" "cython==0.29.33" virtualenv
+
+        if [ -f requirements-android.txt ]; then
+          pip install -r requirements-android.txt
+        else
+          pip install kivy plyer requests
+        fi
+
+    - name: Validate project structure
+      run: |
+        if [ ! -f buildozer.spec ]; then
+          echo "buildozer.spec not found, initializing..."
+          buildozer init
+        fi
+        echo "✅ buildozer.spec found"
 
     - name: Build Android APK
       run: |
-        # Ensure we accept licenses automatically in the environment
         export APP_ANDROID_ACCEPT_SDK_LICENSE=True
-        # Start the build
-        buildozer android debug
+        yes | buildozer android debug --verbose
       env:
-        # Prevents some interactive prompts from hanging the build
+        BUILDOZER_ALLOW_ROOT: 1
         CI: true
+
+    - name: List build artifacts
+      run: |
+        find . -name "*.apk" -type f
+        ls -la bin/ || echo "No bin directory found"
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: focusapp-debug-apk
         path: bin/*.apk
-        if-no-files-found: error
+        if-no-files-found: warn
+
+    - name: Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: bin/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload build logs on failure
       uses: actions/upload-artifact@v4
-      if: failure()
+      if: always()
       with:
         name: build-logs
-        path: .buildozer/android/platform/build-*/build.log
+        path: |
+          .buildozer/android/platform/build-*/build.log
+          .buildozer/*.log
