@@ -3,8 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [ main, master ]
-    tags:
-      - 'v*'
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -26,97 +25,59 @@ jobs:
         python-version: 3.11
         cache: 'pip'
 
-    - name: Cache buildozer global directory
-      uses: actions/cache@v4
-      with:
-        path: ~/.buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-        restore-keys: |
-          buildozer-${{ runner.os }}-
-
     - name: Install system dependencies
       run: |
         sudo apt update
+        # ADDED: libltdl-dev and libtool-bin are the keys to fixing LT_SYS_SYMBOL_USCORE
         sudo apt install -y \
-          python3-dev libffi-dev libssl-dev git unzip default-jdk \
-          automake libtool autoconf pkg-config build-essential \
-          zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev \
-          libreadline-dev libffi-dev libsqlite3-dev wget libbz2-dev \
-          autotools-dev autoconf-archive m4
-
-    - name: Fix autoconf toolchain
-      run: |
-        # Regenerate autotools configuration
-        sudo autoupdate --version || echo "autoupdate not available"
-        # Ensure latest libtool macros are available
-        sudo aclocal --install -I /usr/share/aclocal || echo "aclocal setup done"
-        # Fix potential macro issues
-        export ACLOCAL_PATH="/usr/share/aclocal:$ACLOCAL_PATH"
+          build-essential \
+          git \
+          python3-dev \
+          autoconf \
+          automake \
+          libtool \
+          libltdl-dev \
+          libtool-bin \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libtinfo5 \
+          cmake \
+          libffi-dev \
+          libssl-dev \
+          zip \
+          unzip \
+          openjdk-17-jdk \
+          autoconf-archive \
+          m4
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install buildozer cython==0.29.33
-        # Install dependencies from requirements file if it exists, otherwise install manually
-        if [ -f requirements-android.txt ]; then
-          pip install -r requirements-android.txt
-        else
-          pip install kivy plyer requests
-        fi
-
-    - name: Validate project structure
-      run: |
-        if [ ! -f buildozer.spec ]; then
-          echo "buildozer.spec not found, initializing..."
-          buildozer init
-        fi
-        echo "✅ buildozer.spec found"
-        echo "Project structure:"
-        ls -la
+        # FORCE: Cython 0.29.33 is required to avoid build crashes with Kivy on Android
+        pip install "buildozer>=1.5.0" "cython==0.29.33" virtualenv
 
     - name: Build Android APK
       run: |
-        mkdir -p ~/.android
-        echo "Starting Android build..."
-        echo "Buildozer version:"
-        buildozer version
-        echo "Building APK..."
-        # Running yes to accept license if needed, though config handles it
-        yes | buildozer android debug --verbose
+        # Ensure we accept licenses automatically in the environment
+        export APP_ANDROID_ACCEPT_SDK_LICENSE=True
+        # Start the build
+        buildozer android debug
       env:
-        # ANDROID_SDK_ROOT and ANDROID_HOME are usually set by buildozer or the environment
-        # But setting them explicitly if needed. In github actions ubuntu-latest,
-        # these might not be needed as buildozer downloads its own SDK/NDK
-        # Removing explicit paths that might be wrong on standard runners unless we know they exist.
-        # Buildozer handles SDK download.
-        pass: pass
-
-    - name: List build artifacts
-      run: |
-        find . -name "*.apk" -type f
-        ls -la bin/ || echo "No bin directory found"
+        # Prevents some interactive prompts from hanging the build
+        CI: true
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: focusapp-debug-apk
-        path: |
-          bin/*.apk
-        if-no-files-found: warn
+        path: bin/*.apk
+        if-no-files-found: error
 
-    - name: Release
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: bin/*.apk
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload build logs
+    - name: Upload build logs on failure
       uses: actions/upload-artifact@v4
-      if: always()
+      if: failure()
       with:
         name: build-logs
-        path: |
-          .buildozer/android/platform/build-*/
-          .buildozer/*.log
+        path: .buildozer/android/platform/build-*/build.log
