@@ -3,6 +3,8 @@ name: Build Android APK
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -10,11 +12,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 60
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
@@ -34,27 +51,25 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y \
-          python3-dev libffi-dev libssl-dev git unzip default-jdk \
+          python3-dev libffi-dev libssl-dev git unzip \
           automake libtool autoconf pkg-config build-essential \
           zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev \
           libreadline-dev libffi-dev libsqlite3-dev wget libbz2-dev \
-          autotools-dev autoconf-archive m4
-
-    - name: Fix autoconf toolchain
-      run: |
-        # Regenerate autotools configuration
-        sudo autoupdate --version || echo "autoupdate not available"
-        # Ensure latest libtool macros are available
-        sudo aclocal --install -I /usr/share/aclocal || echo "aclocal setup done"
-        # Fix potential macro issues
-        export ACLOCAL_PATH="/usr/share/aclocal:$ACLOCAL_PATH"
+          autotools-dev autoconf-archive m4 libltdl-dev
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
+        # Install buildozer and cython.
+        # Using a newer Cython compatible with Kivy 2.3.0 if needed, but 0.29.33 is safe for p4a legacy.
         pip install buildozer cython==0.29.33
-        # Install only Android-compatible dependencies
-        pip install kivy plyer requests
+
+        # Install dependencies from requirements file if it exists, otherwise install manually
+        if [ -f requirements-android.txt ]; then
+          pip install -r requirements-android.txt
+        else
+          pip install kivy plyer requests
+        fi
 
     - name: Validate project structure
       run: |
@@ -63,36 +78,35 @@ jobs:
           buildozer init
         fi
         echo "✅ buildozer.spec found"
-        echo "Project structure:"
-        ls -la
 
     - name: Build Android APK
       run: |
-        mkdir -p ~/.android
-        echo "Starting Android build..."
-        echo "Buildozer version:"
-        buildozer version
-        echo "Available commands:"
-        buildozer --help
-        echo "Building APK..."
-        buildozer android debug --verbose
+        yes | buildozer android debug --verbose
       env:
-        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-        ANDROID_HOME: /usr/local/lib/android/sdk
+        # Buildozer will handle SDK/NDK download
+        # Adding a variable to ensure env block is not empty if needed, or just standard behavior
+        BUILDOZER_ALLOW_ROOT: 1
 
     - name: List build artifacts
       run: |
         find . -name "*.apk" -type f
         ls -la bin/ || echo "No bin directory found"
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: focusapp-debug-apk
         path: |
           bin/*.apk
-          .buildozer/android/platform/build-*/outputs/apk/debug/*.apk
         if-no-files-found: warn
+
+    - name: Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: bin/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload build logs
       uses: actions/upload-artifact@v4
