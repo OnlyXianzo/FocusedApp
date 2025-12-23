@@ -37,9 +37,11 @@ sudo apt install git unzip default-jdk -y
 pip3 install buildozer
 ```
 
-### Step 2: Pyjnius Compatibility Patch (Critical for Python 3.11+)
+### Step 2: Compatibility Patches (Critical for Python 3.11+)
 
-The project uses `pyjnius` which has compatibility issues with Python 3.11 due to the removal of the `long` type. Our build config expects a local patched version of `pyjnius`.
+The project uses `pyjnius` and `kivy` which have compatibility issues with Python 3.11 due to the removal of the `long` type. Our build config expects local patched versions.
+
+#### Patch Pyjnius
 
 1. Clone `pyjnius` into the project root:
    ```bash
@@ -55,6 +57,24 @@ The project uses `pyjnius` which has compatibility issues with Python 3.11 due t
 3. Ensure `buildozer.spec` points to it (already configured):
    ```ini
    requirements.source.pyjnius = ./pyjnius
+   ```
+
+#### Patch Kivy
+
+1. Clone `kivy` (version 2.3.0) into the project root:
+   ```bash
+   git clone --depth 1 --branch 2.3.0 https://github.com/kivy/kivy.git
+   ```
+
+2. Patch the `weakproxy.pyx` file:
+   ```bash
+   # Replace 'return long(' with 'return int('
+   sed -i 's/return long(/return int(/g' kivy/kivy/weakproxy.pyx
+   ```
+
+3. Ensure `buildozer.spec` points to it:
+   ```ini
+   requirements.source.kivy = ./kivy
    ```
 
 ### Step 3: Build Debug APK

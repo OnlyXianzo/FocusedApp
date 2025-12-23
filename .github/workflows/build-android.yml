@@ -93,6 +93,20 @@ jobs:
         fi
         cd ..
 
+    - name: Prepare Kivy Patch
+      run: |
+        # Clone Kivy to patch it
+        git clone --depth 1 --branch 2.3.0 https://github.com/kivy/kivy.git
+        cd kivy
+        # Replace 'long' with 'int' in kivy/weakproxy.pyx to fix Python 3 compatibility
+        if [ -f kivy/weakproxy.pyx ]; then
+          sed -i 's/return long(/return int(/g' kivy/weakproxy.pyx
+          echo "✅ Patched kivy/weakproxy.pyx"
+        else
+          echo "⚠️ kivy/weakproxy.pyx not found, skipping patch"
+        fi
+        cd ..
+
     - name: Clean Build Cache
       run: |
         rm -rf .buildozer/android/platform/build-*/

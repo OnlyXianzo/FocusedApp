@@ -42,8 +42,9 @@ requirements = python3,kivy==2.3.0,plyer,requests,certifi,urllib3,charset-normal
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivy = ../../kivy
-# Using local pyjnius to allow patching 'long' type for Python 3 compatibility (see ANDROID_BUILD_GUIDE.md)
+# Using local pyjnius and kivy to allow patching 'long' type for Python 3 compatibility (see ANDROID_BUILD_GUIDE.md)
 requirements.source.pyjnius = ./pyjnius
+requirements.source.kivy = ./kivy
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/data/presplash.png
