@@ -37,7 +37,27 @@ sudo apt install git unzip default-jdk -y
 pip3 install buildozer
 ```
 
-### Step 2: Build Debug APK
+### Step 2: Pyjnius Compatibility Patch (Critical for Python 3.11+)
+
+The project uses `pyjnius` which has compatibility issues with Python 3.11 due to the removal of the `long` type. Our build config expects a local patched version of `pyjnius`.
+
+1. Clone `pyjnius` into the project root:
+   ```bash
+   git clone https://github.com/kivy/pyjnius.git
+   ```
+
+2. Patch the source code:
+   ```bash
+   # Replace 'long' with 'int' in the utility file
+   sed -i 's/long/int/g' pyjnius/jnius/jnius_utils.pxi
+   ```
+
+3. Ensure `buildozer.spec` points to it (already configured):
+   ```ini
+   requirements.source.pyjnius = ./pyjnius
+   ```
+
+### Step 3: Build Debug APK
 ```bash
 # Navigate to project directory
 cd FocusedApp
@@ -46,7 +66,7 @@ cd FocusedApp
 buildozer android debug
 ```
 
-### Step 3: Build Release APK
+### Step 4: Build Release APK
 ```bash
 # Build release APK
 buildozer android release
@@ -61,13 +81,13 @@ buildozer android release
 1. Enable Developer Options on your Android device
 2. Enable USB Debugging
 3. Connect device to computer
-4. Install APK: `adb install bin/focusapp-0.1-debug.apk`
+4. Install APK: `adb install bin/focusapp-1.0.0-debug.apk`
 
 ### Method 2: Android Emulator
 1. Install Android Studio
 2. Create an AVD (Android Virtual Device)
 3. Start emulator
-4. Install APK: `adb install bin/focusapp-0.1-debug.apk`
+4. Install APK: `adb install bin/focusapp-1.0.0-debug.apk`
 
 ## Debugging
 
@@ -93,54 +113,31 @@ sudo apt install python3-dev libffi-dev libssl-dev
 
 #### 2. Build Fails - Java Issues
 ```bash
-# Set JAVA_HOME
-export JAVA_HOME=/usr/lib/jvm/default-java
+# Set JAVA_HOME (Java 17 recommended for API 33+)
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ```
 
-#### 3. App Crashes on Android
-- Check logcat for Python errors
-- Ensure all permissions are granted
-- Test on different Android versions
+#### 3. Pyjnius Compilation Error
+If you see `undeclared name not builtin: long`, ensure you have performed **Step 2: Pyjnius Compatibility Patch** correctly.
 
 #### 4. App Usage Monitoring Not Working
-- Grant "Usage Access" permission manually in Settings
-- Check if `psutil` works on Android (may need alternative)
+- Grant "Usage Access" permission manually in Settings if not prompted.
+- Check logs for permission denial errors.
 
 ### Android-Specific Modifications
 
-#### 1. Update app_usage_checker.py for Android
-```python
-# Add Android-specific app usage monitoring
-try:
-    from jnius import autoclass
-    # Use Android's UsageStatsManager
-    UsageStatsManager = autoclass('android.app.usage.UsageStatsManager')
-    # Implementation needed
-except ImportError:
-    # Fall back to psutil for desktop testing
-    pass
-```
+The app automatically detects Android and uses `UsageStatsManager` to monitor apps.
 
-#### 2. Request Permissions at Runtime
-```python
-# Add to main.py
-from android.permissions import request_permissions, Permission
-
-def request_android_permissions():
-    request_permissions([
-        Permission.PACKAGE_USAGE_STATS,
-        Permission.SYSTEM_ALERT_WINDOW,
-        Permission.INTERNET
-    ])
-```
+#### 1. Permissions
+The app requests permissions automatically. If monitoring fails, check `Settings > Apps > Special App Access > Usage Access` and ensure Focus Mode App is allowed.
 
 ## File Structure After Build
 ```
 FocusedApp/
 ├── .buildozer/          # Build cache
 ├── bin/                 # Built APK files
-│   ├── focusapp-0.1-debug.apk
-│   └── focusapp-0.1-release.apk (if built)
+│   ├── focusapp-1.0.0-debug.apk
+│   └── focusapp-1.0.0-release.apk (if built)
 ├── buildozer.spec       # Build configuration
 └── [project files]
 ```
