@@ -51,7 +51,7 @@ The project uses `pyjnius` and `kivy` which have compatibility issues with Pytho
 2. Patch the source code:
    ```bash
    # Replace 'long' with 'int' in the utility file
-   sed -i 's/long/int/g' pyjnius/jnius/jnius_utils.pxi
+   sed -i 's/\blong\b/int/g' pyjnius/jnius/jnius_utils.pxi
    ```
 
 3. Ensure `buildozer.spec` points to it (already configured):
@@ -152,7 +152,7 @@ The app automatically detects Android and uses `UsageStatsManager` to monitor ap
 The app requests permissions automatically. If monitoring fails, check `Settings > Apps > Special App Access > Usage Access` and ensure Focus Mode App is allowed.
 
 ## File Structure After Build
-```
+```text
 FocusedApp/
 ├── .buildozer/          # Build cache
 ├── bin/                 # Built APK files

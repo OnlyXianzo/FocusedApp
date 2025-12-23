@@ -86,7 +86,7 @@ jobs:
         cd pyjnius
         # Replace 'long' with 'int' in jnius/jnius_utils.pxi to fix Python 3 compatibility with Cython
         if [ -f jnius/jnius_utils.pxi ]; then
-          sed -i 's/long/int/g' jnius/jnius_utils.pxi
+          sed -i 's/\blong\b/int/g' jnius/jnius_utils.pxi
           echo "✅ Patched jnius/jnius_utils.pxi"
         else
           echo "⚠️ jnius/jnius_utils.pxi not found, skipping patch"
