@@ -79,6 +79,25 @@ jobs:
         fi
         echo "✅ buildozer.spec found"
 
+    - name: Prepare Pyjnius Patch
+      run: |
+        # Clone pyjnius to patch it
+        git clone https://github.com/kivy/pyjnius.git
+        cd pyjnius
+        # Replace 'long' with 'int' in jnius/jnius_utils.pxi to fix Python 3 compatibility with Cython
+        if [ -f jnius/jnius_utils.pxi ]; then
+          sed -i 's/long/int/g' jnius/jnius_utils.pxi
+          echo "✅ Patched jnius/jnius_utils.pxi"
+        else
+          echo "⚠️ jnius/jnius_utils.pxi not found, skipping patch"
+        fi
+        cd ..
+
+    - name: Clean Build Cache
+      run: |
+        rm -rf .buildozer/android/platform/build-*/
+        rm -rf .buildozer/android/platform/python-for-android/
+
     - name: Build Android APK
       run: |
         yes | buildozer android debug --verbose

@@ -42,6 +42,7 @@ requirements = python3,kivy,plyer,requests,certifi,urllib3,charset-normalizer,id
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivy = ../../kivy
+requirements.source.pyjnius = ./pyjnius
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/data/presplash.png
