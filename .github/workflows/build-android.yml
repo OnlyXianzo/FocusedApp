@@ -39,22 +39,32 @@ jobs:
         python-version: 3.11
         cache: 'pip'
 
+    - name: Cache buildozer global directory
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer
+        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          buildozer-${{ runner.os }}-
+
     - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y \
           python3-dev libffi-dev libssl-dev git unzip \
           automake libtool autoconf pkg-config build-essential \
-          zlib1g-dev libncurses5-dev libncursesw5-dev libgdbm-dev \
-          libnss3-dev libreadline-dev libsqlite3-dev wget libbz2-dev \
-          autotools-dev autoconf-archive m4 libltdl-dev libtool-bin
+          zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev \
+          libreadline-dev libffi-dev libsqlite3-dev wget libbz2-dev \
+          autotools-dev autoconf-archive m4 libltdl-dev
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        # Using Cython 0.29.33 for stability with Kivy/p4a
-        pip install "buildozer>=1.5.0" "cython==0.29.33" virtualenv
+        # Install buildozer and cython.
+        # Installing latest Cython to match latest P4A and Kivy 2.3.x requirements
+        pip install buildozer "cython>=0.29.33"
 
+        # Install dependencies from requirements file if it exists, otherwise install manually
         if [ -f requirements-android.txt ]; then
           pip install -r requirements-android.txt
         else
@@ -71,11 +81,11 @@ jobs:
 
     - name: Build Android APK
       run: |
-        export APP_ANDROID_ACCEPT_SDK_LICENSE=True
         yes | buildozer android debug --verbose
       env:
+        # Buildozer will handle SDK/NDK download
+        # Adding a variable to ensure env block is not empty if needed, or just standard behavior
         BUILDOZER_ALLOW_ROOT: 1
-        CI: true
 
     - name: List build artifacts
       run: |
@@ -86,7 +96,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: focusapp-debug-apk
-        path: bin/*.apk
+        path: |
+          bin/*.apk
         if-no-files-found: warn
 
     - name: Release
@@ -97,11 +108,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload build logs on failure
+    - name: Upload build logs
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: build-logs
         path: |
-          .buildozer/android/platform/build-*/build.log
+          .buildozer/android/platform/build-*/
           .buildozer/*.log

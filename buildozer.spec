@@ -37,7 +37,7 @@ version = 1.0.0
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,plyer,requests,certifi,urllib3,charset-normalizer,idna,jnius
+requirements = python3,kivy,plyer,requests,certifi,urllib3,charset-normalizer,idna,pyjnius,openssl
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -206,7 +206,7 @@ android.accept_sdk_license = True
 # (bool) Enable AndroidX support. Enable when 'android.gradle_dependencies'
 # contains an 'androidx' package, or any package from Kotlin source.
 # android.enable_androidx requires android.api >= 28
-#android.enable_androidx = True
+android.enable_androidx = True
 
 # (list) add java compile options
 # this can for example be necessary when importing certain java libraries using the 'android.gradle_dependencies' option
@@ -321,7 +321,7 @@ android.allow_backup = True
 #p4a.fork = kivy
 
 # (str) python-for-android branch to use, defaults to master
-#p4a.branch = master
+p4a.branch = master
 
 # (str) python-for-android specific commit to use, defaults to HEAD, must be within p4a.branch
 #p4a.commit = HEAD
